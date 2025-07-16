@@ -17,7 +17,7 @@ os.makedirs(PDF_DIR, exist_ok=True)
 REGULATIONS = {
     "GDPR": "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32016R0679",
     "HIPAA": "https://www.hhs.gov/sites/default/files/hipaa-simplification-201303.pdf",
-    "SOX": "https://www.sec.gov/about/laws/soa2002.pdf",
+    "SOX": "https://www.govinfo.gov/content/pkg/COMPS-1883/pdf/COMPS-1883.pdf" , # GovInfo PDF with text layer 
     "CCPA":  "https://oag.ca.gov/sites/all/files/agweb/pdfs/privacy/ccpa-text-of-mod-clean-020720.pdf",          # California Consumer Privacy Act
    "PCI-DSS": "https://assets.kpmg.com/content/dam/kpmgsites/in/pdf/2024/08/payment-card-industry-data-security-standard-version-4.0.1.pdf"  # Payment Card Industry Data Security Standard         
 
