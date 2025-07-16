@@ -1,4 +1,5 @@
 requests
+bs4
 streamlit
 openai
 faiss-cpu
