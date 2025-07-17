@@ -1,28 +1,51 @@
 import os
-import openai
 from dotenv import load_dotenv
+import google.genai as genai
 
+# Load .env and configure the Gemini Pro client
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+API_KEY = os.getenv("GOOGLE_API_KEY")
+genai.configure(api_key=API_KEY)
+
+# The exact model alias you want to call
+MODEL_NAME = "gemini-pro-preview"
+
+# A strong system prompt to lock in persona and scope
+SYSTEM_PROMPT = """
+You are a senior regulatory compliance advisor with 15+ years’ experience working alongside government agencies. 
+You provide clear, concise, and legally accurate guidance, and you never invent facts or cite anything outside the supplied context.
+"""
+
 
 def answer_query(query: str, context_chunks: list[dict]) -> str:
+    # 1) Build a single-context string
     context = "\n\n".join(f"- {c['text']}" for c in context_chunks)
-    prompt = f"""
-You are a helpful compliance assistant. Use the following context to answer the question:
 
+    # 2) User instructions: scope & format
+    USER_PROMPT = f"""\
 Context:
-{context}
+[{context}]
 
-Question: {query}
-Answer:
+Question:
+{query}
+
+Instructions:
+1. Use only the information in the Context.
+2. If the Context doesn’t contain enough to answer, reply:
+   “Insufficient information provided to answer the question.”
+3. Structure your answer with a brief summary, then bullet‑pointed recommendations.
+4. Keep language precise and actionable; do not speculate or add external details.
 """
-    resp = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are empathetic and precise."},
-            {"role": "user",   "content": prompt}
-        ],
+
+    # 3) Call Gemini Pro
+    resp = genai.chat.create(
+        model=MODEL_NAME,
         temperature=0.2,
-        max_tokens=300
+        messages=[
+            {"author": "system", "content": SYSTEM_PROMPT},
+            {"author": "user", "content": USER_PROMPT},
+        ],
     )
-    return resp.choices[0].message.content.strip()
+
+    # 4) Extract and return the answer text
+    return resp.candidates[0].content.strip()
