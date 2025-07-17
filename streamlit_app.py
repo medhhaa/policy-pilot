@@ -1,6 +1,6 @@
 import streamlit as st
-from retrieval import build_faiss_index, query_faiss
-from llm_agent import answer_query
+from policy_pilot.retrieval import build_faiss_index, query_faiss
+from policy_pilot.llm_agent import answer_query
 
 st.set_page_config(page_title="policy‑pilot")
 st.title("🧭 policy‑pilot: Compliance Q&A")
