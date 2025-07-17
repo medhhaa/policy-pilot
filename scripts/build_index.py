@@ -10,7 +10,7 @@ from policy_pilot.retrieval import build_faiss_index
 
 
 def main():
-    build_faiss_index(limit=5)  # Or pass a limit for testing
+    build_faiss_index(limit = 5)  
 
 if __name__ == "__main__":
     main()
