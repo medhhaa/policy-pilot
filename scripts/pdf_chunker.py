@@ -2,7 +2,7 @@
 
 """
 Extract and chunk text from compliance PDFs (GDPR, HIPAA, SOX, CCPA, PCI-DSS)
-into manageable pieces (~750 characters each). 
+into manageable pieces (~750 characters each).
 First tries pdfplumber; if no text is extracted, falls back to pdfminer.six high-level extract_text.
 Includes metadata for regulation and chunk index.
 """
@@ -19,6 +19,7 @@ CHUNKS_PATH = "chunks/chunks.json"
 
 # Maximum characters per chunk
 MAX_CHARS = 750
+
 
 def chunk_text(text, max_len=MAX_CHARS):
     """
@@ -40,6 +41,7 @@ def chunk_text(text, max_len=MAX_CHARS):
     if current:
         chunks.append(current.strip())
     return chunks
+
 
 def extract_and_chunk():
     os.makedirs(os.path.dirname(CHUNKS_PATH), exist_ok=True)
@@ -75,17 +77,16 @@ def extract_and_chunk():
         # Chunk the full text of the document
         chunks = chunk_text(text_full)
         for idx, chunk in enumerate(chunks, start=1):
-            all_chunks.append({
-                "id": f"{reg_id}_chunk{idx}",
-                "regulation": reg_id,
-                "text": chunk
-            })
+            all_chunks.append(
+                {"id": f"{reg_id}_chunk{idx}", "regulation": reg_id, "text": chunk}
+            )
 
     # Save all chunks to JSON
     with open(CHUNKS_PATH, "w", encoding="utf-8") as f:
         json.dump(all_chunks, f, ensure_ascii=False, indent=2)
 
     print(f"Saved {len(all_chunks)} chunks to {CHUNKS_PATH}")
+
 
 if __name__ == "__main__":
     extract_and_chunk()
