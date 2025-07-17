@@ -11,6 +11,7 @@ INDEX_PATH = os.path.join(BASE_DIR, "vector_store", "faiss.index")
 ID_MAP_PATH = os.path.join(BASE_DIR, "vector_store", "id_map.json")
 
 
+
 def load_chunks(limit: int = None) -> tuple[list[str], list[str]]:
     """
     Load chunk IDs and texts from disk.
@@ -65,27 +66,49 @@ def build_faiss_index(limit: int = None, preview: int = 3) -> None:
     print(f"Built FAISS index with {len(ids)} vectors.\n")
 
 
+_index:   faiss.Index = None
+_ids:     list[str]  = None
+_chunk_map: dict[str,str] = None
+
+# to optimize @query_faiss time
+def _lazy_load_store():
+    global _index, _ids, _chunk_map
+    if _index is None:
+        # 1) Load FAISS index
+        _index = faiss.read_index(INDEX_PATH)
+        # 2) Load ID list
+        with open(ID_MAP_PATH, "r", encoding="utf-8") as f:
+            _ids = json.load(f)
+        # 3) Load full chunk → text map
+        with open(CHUNKS_PATH, "r", encoding="utf-8") as f:
+            chunks = json.load(f)
+        _chunk_map = {c["id"]: c["text"] for c in chunks}
+
+
 def query_faiss(query: str, top_k: int = 3) -> list[dict]:
     """
-    Embed `query`, search the FAISS index, and return the top_k chunks.
-    Each result is a dict with keys 'id', 'text', and 'score'.
+    1) Lazily load index & metadata on first call
+    2) Embed & normalize the query vector
+    3) Perform k-NN search
+    4) Map back to chunk IDs + texts
     """
-    # Load index + metadata
-    index = faiss.read_index(INDEX_PATH)
-    with open(ID_MAP_PATH, "r", encoding="utf-8") as f:
-        ids = json.load(f)
-    with open(CHUNKS_PATH, "r", encoding="utf-8") as f:
-        chunk_map = {c["id"]: c["text"] for c in json.load(f)}
+    _lazy_load_store()
 
-    # Embed and normalize query
+  # Embed & normalize
     q_emb = embed_texts([query])
     q_arr = np.array(q_emb, dtype="float32")
     faiss.normalize_L2(q_arr)
 
     # Search
-    distances, indices = index.search(q_arr, top_k)
+    distances, indices = _index.search(q_arr, top_k)
+
+    # Collect results
     results = []
     for score, idx in zip(distances[0], indices[0]):
-        cid = ids[idx]
-        results.append({"id": cid, "text": chunk_map[cid], "score": float(score)})
+        cid = _ids[idx]
+        results.append({
+            "id":    cid,
+            "text":  _chunk_map[cid],
+            "score": float(score)
+        })
     return results
