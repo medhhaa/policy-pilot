@@ -6,3 +6,6 @@ faiss-cpu
 python-dotenv
 pdfplumber
 numpy
+black
+google-genai
+
