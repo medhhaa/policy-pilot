@@ -5,10 +5,11 @@ import numpy as np
 from policy_pilot.embed_utils import embed_texts  # central embedding
 
 # Paths
-BASE_DIR    = os.getcwd()
-CHUNKS_PATH = os.path.join(BASE_DIR, "chunks",      "chunks.json")
-INDEX_PATH  = os.path.join(BASE_DIR, "vector_store", "faiss.index")
+BASE_DIR = os.getcwd()
+CHUNKS_PATH = os.path.join(BASE_DIR, "chunks", "chunks.json")
+INDEX_PATH = os.path.join(BASE_DIR, "vector_store", "faiss.index")
 ID_MAP_PATH = os.path.join(BASE_DIR, "vector_store", "id_map.json")
+
 
 
 def load_chunks(limit: int = None) -> tuple[list[str], list[str]]:
@@ -16,12 +17,12 @@ def load_chunks(limit: int = None) -> tuple[list[str], list[str]]:
     Load chunk IDs and texts from disk.
     :param limit: if set, only return the first N chunks.
     """
-    with open(CHUNKS_PATH, 'r', encoding='utf-8') as f:
+    with open(CHUNKS_PATH, "r", encoding="utf-8") as f:
         chunks = json.load(f)
     if limit is not None:
         chunks = chunks[:limit]
-    ids   = [c['id']   for c in chunks]
-    texts = [c['text'] for c in chunks]
+    ids = [c["id"] for c in chunks]
+    texts = [c["text"] for c in chunks]
     return ids, texts
 
 
@@ -52,166 +53,62 @@ def build_faiss_index(limit: int = None, preview: int = 3) -> None:
     print(f"\nSaved embeddings to {emb_path}")
 
     # 4b) Build FAISS index
-    arr = np.array(embeddings, dtype='float32')
+    arr = np.array(embeddings, dtype="float32")
     faiss.normalize_L2(arr)
     index = faiss.IndexFlatIP(arr.shape[1])
     index.add(arr)
     faiss.write_index(index, INDEX_PATH)
 
     # 4c) Save ID map
-    with open(ID_MAP_PATH, 'w', encoding='utf-8') as f:
+    with open(ID_MAP_PATH, "w", encoding="utf-8") as f:
         json.dump(ids, f)
 
     print(f"Built FAISS index with {len(ids)} vectors.\n")
 
 
+_index:   faiss.Index = None
+_ids:     list[str]  = None
+_chunk_map: dict[str,str] = None
+
+# to optimize @query_faiss time
+def _lazy_load_store():
+    global _index, _ids, _chunk_map
+    if _index is None:
+        # 1) Load FAISS index
+        _index = faiss.read_index(INDEX_PATH)
+        # 2) Load ID list
+        with open(ID_MAP_PATH, "r", encoding="utf-8") as f:
+            _ids = json.load(f)
+        # 3) Load full chunk → text map
+        with open(CHUNKS_PATH, "r", encoding="utf-8") as f:
+            chunks = json.load(f)
+        _chunk_map = {c["id"]: c["text"] for c in chunks}
+
+
 def query_faiss(query: str, top_k: int = 3) -> list[dict]:
     """
-    Embed `query`, search the FAISS index, and return the top_k chunks.
-    Each result is a dict with keys 'id', 'text', and 'score'.
+    1) Lazily load index & metadata on first call
+    2) Embed & normalize the query vector
+    3) Perform k-NN search
+    4) Map back to chunk IDs + texts
     """
-    # Load index + metadata
-    index = faiss.read_index(INDEX_PATH)
-    with open(ID_MAP_PATH, 'r', encoding='utf-8') as f:
-        ids = json.load(f)
-    with open(CHUNKS_PATH, 'r', encoding='utf-8') as f:
-        chunk_map = {c['id']: c['text'] for c in json.load(f)}
+    _lazy_load_store()
 
-    # Embed and normalize query
+  # Embed & normalize
     q_emb = embed_texts([query])
-    q_arr = np.array(q_emb, dtype='float32')
+    q_arr = np.array(q_emb, dtype="float32")
     faiss.normalize_L2(q_arr)
 
     # Search
-    distances, indices = index.search(q_arr, top_k)
+    distances, indices = _index.search(q_arr, top_k)
+
+    # Collect results
     results = []
     for score, idx in zip(distances[0], indices[0]):
-        cid = ids[idx]
+        cid = _ids[idx]
         results.append({
             "id":    cid,
-            "text":  chunk_map[cid],
+            "text":  _chunk_map[cid],
             "score": float(score)
         })
     return results
-
-
-
-# import os
-# import json
-# import time
-# import faiss
-# import numpy as np
-# from policy_pilot.embed_utils import embed_texts
-
-# # File paths
-# BASE_DIR       = os.getcwd()
-# CHUNKS_PATH    = os.path.join(BASE_DIR, "chunks", "chunks.json")
-# INDEX_PATH     = os.path.join(BASE_DIR, "vector_store", "faiss.index")
-# ID_MAP_PATH    = os.path.join(BASE_DIR, "vector_store", "id_map.json")
-
-# # Rate‑limit settings
-# BATCH_SIZE     = 199     # Keep under 200 to respect 200 RPM limit
-# SLEEP_INTERVAL = 65      # Seconds between batches
-
-
-# def load_chunks(limit: int = None) -> tuple[list[str], list[str]]:
-#     """
-#     Load chunk IDs and texts from JSON file.
-
-#     :param limit: Optional max number of chunks.
-#     :return: Tuple of (ids, texts).
-#     """
-#     with open(CHUNKS_PATH, 'r', encoding='utf-8') as f:
-#         chunks = json.load(f)
-#     if limit:
-#         chunks = chunks[:limit]
-#     ids = [chunk['id'] for chunk in chunks]
-#     texts = [chunk['text'] for chunk in chunks]
-#     return ids, texts
-
-
-# def embed_chunks(texts: list[str]) -> list[list[float]]:
-#     """
-#     Embed texts in rate‑limited batches.
-
-#     :param texts: List of strings to embed.
-#     :return: List of embedding vectors.
-#     """
-#     embeddings = []
-#     total = len(texts)
-#     for start in range(0, total, BATCH_SIZE):
-#         end = min(start + BATCH_SIZE, total)
-#         batch = texts[start:end]
-#         print(f"Embedding batch {start+1}-{end} of {total}...")
-#         t0 = time.time()
-#         batch_embs = embed_texts(batch)
-#         embeddings.extend(batch_embs)
-#         elapsed = time.time() - t0
-#         if end < total:
-#             to_sleep = SLEEP_INTERVAL - elapsed
-#             if to_sleep > 0:
-#                 print(f"Sleeping for {to_sleep:.1f}s...")
-#                 time.sleep(to_sleep)
-#     return embeddings
-
-
-# def build_faiss_index(limit: int = None) -> None:
-#     """
-#     Orchestrate chunk loading, embedding, and FAISS index creation.
-
-#     :param limit: Optional maximum number of chunks to index.
-#     """
-#     # Ensure output directory exists
-#     os.makedirs(os.path.dirname(INDEX_PATH), exist_ok=True)
-
-#     # Load and embed
-#     ids, texts = load_chunks(limit)
-#     print(f"Loaded {len(ids)} chunks; starting embedding...")
-#     embs = embed_chunks(texts)
-
-#     # Convert to NumPy and normalize
-#     arr = np.array(embs, dtype='float32')
-#     faiss.normalize_L2(arr)
-
-#     # Build FAISS index
-#     index = faiss.IndexFlatIP(arr.shape[1])
-#     index.add(arr)
-
-#     # Persist index and ID map
-#     faiss.write_index(index, INDEX_PATH)
-#     with open(ID_MAP_PATH, 'w', encoding='utf-8') as f:
-#         json.dump(ids, f)
-
-#     print(f"Built FAISS index with {len(ids)} vectors.")
-
-
-# def query_faiss(query: str, top_k: int = 3) -> list[dict]:
-#     """
-#     Query the FAISS index for the top_k most similar chunks.
-
-#     :param query: User query string.
-#     :param top_k: Number of results to return.
-#     :return: List of dicts with keys 'id', 'text', and 'score'.
-#     """
-#     # Load index and metadata
-#     index = faiss.read_index(INDEX_PATH)
-#     with open(ID_MAP_PATH, 'r', encoding='utf-8') as f:
-#         ids = json.load(f)
-#     with open(CHUNKS_PATH, 'r', encoding='utf-8') as f:
-#         chunk_map = {c['id']: c['text'] for c in json.load(f)}
-
-#     # Embed query and normalize
-#     q_emb = np.array(embed_texts([query]), dtype='float32')
-#     faiss.normalize_L2(q_emb)
-
-#     # Search and collect results
-#     distances, indices = index.search(q_emb, top_k)
-#     results = []
-#     for i, idx in enumerate(indices[0]):
-#         cid = ids[idx]
-#         results.append({
-#             'id': cid,
-#             'text': chunk_map[cid],
-#             'score': float(distances[0][i])
-#         })
-#     return results

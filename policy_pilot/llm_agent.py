@@ -1,28 +1,55 @@
 import os
-import openai
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
+# Load your Gemini/Vertex AI API key from .env
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+API_KEY = os.getenv("GOOGLE_API_KEY")
+
+# Instantiate the GenAI client
+client = genai.Client(api_key=API_KEY)
+
+# The exact model alias 
+MODEL_NAME = "gemini-2.5-pro"
+
+# A strong system prompt to lock in persona and scope
+SYSTEM_PROMPT = """
+You are a senior regulatory compliance advisor with 15+ years’ experience working alongside government agencies. 
+You provide clear, concise, and legally accurate guidance, and you never invent facts or cite anything outside the supplied context.
+"""
+
 
 def answer_query(query: str, context_chunks: list[dict]) -> str:
+    # 1) Build a single-context string
     context = "\n\n".join(f"- {c['text']}" for c in context_chunks)
-    prompt = f"""
-You are a helpful compliance assistant. Use the following context to answer the question:
 
+    # 2) User instructions: scope & format
+    USER_PROMPT = f"""\
 Context:
-{context}
+[{context}]
 
-Question: {query}
-Answer:
+Question:
+{query}
+
+Instructions:
+1. Use only the information in the Context.
+2. If the provided context doesn’t cover your question, summarize what you do know from the context, then answer from general compliance best practices.
+3. Structure your answer with a brief summary, then bullet‑pointed recommendations.
+4. Keep language precise and actionable; do not speculate or add external details.
 """
-    resp = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are empathetic and precise."},
-            {"role": "user",   "content": prompt}
-        ],
+
+    config = types.GenerateContentConfig(
+        system_instruction=SYSTEM_PROMPT,
         temperature=0.2,
-        max_tokens=300
+        candidate_count=1,
+      
     )
-    return resp.choices[0].message.content.strip()
+
+    response = client.models.generate_content(
+        model=MODEL_NAME,
+        contents=USER_PROMPT,
+        config=config
+    )                                                                      
+
+    return response.text

@@ -17,10 +17,9 @@ os.makedirs(PDF_DIR, exist_ok=True)
 REGULATIONS = {
     "GDPR": "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32016R0679",
     "HIPAA": "https://www.hhs.gov/sites/default/files/hipaa-simplification-201303.pdf",
-    "SOX": "https://www.govinfo.gov/content/pkg/COMPS-1883/pdf/COMPS-1883.pdf" , # GovInfo PDF with text layer 
-    "CCPA":  "https://oag.ca.gov/sites/all/files/agweb/pdfs/privacy/ccpa-text-of-mod-clean-020720.pdf",          # California Consumer Privacy Act
-   "PCI-DSS": "https://assets.kpmg.com/content/dam/kpmgsites/in/pdf/2024/08/payment-card-industry-data-security-standard-version-4.0.1.pdf"  # Payment Card Industry Data Security Standard         
-
+    "SOX": "https://www.govinfo.gov/content/pkg/COMPS-1883/pdf/COMPS-1883.pdf",  # GovInfo PDF with text layer
+    "CCPA": "https://oag.ca.gov/sites/all/files/agweb/pdfs/privacy/ccpa-text-of-mod-clean-020720.pdf",  # California Consumer Privacy Act
+    "PCI-DSS": "https://assets.kpmg.com/content/dam/kpmgsites/in/pdf/2024/08/payment-card-industry-data-security-standard-version-4.0.1.pdf",  # Payment Card Industry Data Security Standard
 }
 
 # Browser-like headers to mimic a real user and bypass simple bot filters
@@ -30,9 +29,10 @@ HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/136.0.0.0 Safari/537.36"
     ),
-    "Accept": "application/pdf",            # We expect PDF responses
-    "Accept-Language": "en-US,en;q=0.9"     # Preference for English
+    "Accept": "application/pdf",  # We expect PDF responses
+    "Accept-Language": "en-US,en;q=0.9",  # Preference for English
 }
+
 
 def download_pdfs(regs: dict, save_dir: str):
     """
@@ -48,10 +48,7 @@ def download_pdfs(regs: dict, save_dir: str):
         try:
             # Send GET request with headers and follow redirects
             response = requests.get(
-                url,
-                headers=HEADERS,
-                allow_redirects=True,
-                timeout=30
+                url, headers=HEADERS, allow_redirects=True, timeout=30
             )
             # Raise an HTTPError for bad status codes (e.g., 403, 404)
             response.raise_for_status()
@@ -66,6 +63,6 @@ def download_pdfs(regs: dict, save_dir: str):
             # Generic handling for network, file I/O, or other errors
             print(f"  ✖ Failed to download {reg_id}: {e}")
 
+
 if __name__ == "__main__":
     download_pdfs(REGULATIONS, PDF_DIR)
-
