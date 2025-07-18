@@ -115,34 +115,6 @@ policy-pilot/
 └── requirements.txt
 ```
 
-## Customization
-
-### Adding New Regulations
-
-1. Update `REGULATIONS` dictionary in `pdf_fetcher.py`
-2. Run the document processing pipeline
-3. Rebuild the vector index
-
-### Adjusting Chunk Size
-
-Modify `MAX_CHARS` in `pdf_chunker.py` to optimize for your use case:
-- Smaller chunks: More precise retrieval, may lose context
-- Larger chunks: More context, potentially less precise
-
-### Tuning Retrieval
-
-Adjust `top_k` parameter in queries to balance between comprehensive context (higher k) and focused responses (lower k).
-
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-
 ---
 
 **Disclaimer**: Policy Pilot provides guidance based on publicly available regulatory documents. Always consult with qualified legal professionals for specific compliance decisions.
