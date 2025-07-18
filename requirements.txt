@@ -8,4 +8,5 @@ pdfplumber
 numpy
 black
 google-genai
+sentence-transformers
 
